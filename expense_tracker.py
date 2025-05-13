@@ -12,15 +12,32 @@ def save_data(data):
     with open("expenses.json", "w") as file:
         json.dump(data, file, indent=4)
 
-def add_expense(description, amount):
+
+def valid_amount(amt_input):
+    try:
+        amt_input = float(amt_input)
+        if amt_input > 0:
+            return amt_input
+        else:
+            print("Amount must be a positive number.")
+            return None
+    except ValueError:
+        print("Invalid amount. Please try again.")
+        return None
+
+def valid_date(date_input):
+    try:
+        if not date_input:
+            return datetime.now().strftime("%Y-%m-%d")   
+        else:
+            datetime.strptime(date_input, "%Y-%m-%d")
+            return date_input
+    except ValueError:
+        print("Invalid Date Format. Please try again.")
+        return None
+
+def add_expense(description, amount, date):
     data = load_data()
-    date_input = input("Enter expense date (YYYY-MM-DD) or press Enter for today's date: ")
-
-    if not date_input:
-        date = datetime.now().strftime("%Y-%m-%d")
-    else:
-        date = date_input
-
     expense_id = len(data["expenses"]) + 1
 
     expense = {
@@ -81,32 +98,28 @@ def update_expense():
             expense_found =  True
             print(f"Current details: Description: {exp['description']}, Amount: {exp['amount']}, Date: {exp['date']}")
 
-            new_description = input("Enter new description (if needed): ")
-            new_amount = input("Enter new amount(if needed): ")
-            new_date = input("Enter new date(if needed): ")
+            new_description = input("Enter new description (if needed): ")            
             
             if new_description:
                 exp['description'] = new_description
-            if new_amount:
-                try:
-                    new_amount_value =  float(new_amount)
-                    if new_amount_value < 0:
-                        print("Amount must be a positive number.")
-                    else:
-                        exp['amount'] = new_amount_value
-                except ValueError:
-                    print("Invalid amount input. Keeping the original amount.")
-            if new_date:
-                while True:
-                    try:
-                        datetime.strptime(new_date, "%Y-%m-%d")
+            while True:
+                new_amount = input("Enter new amount(if needed): ")
+                if new_amount:
+                    new_amount = valid_amount(new_amount)
+                    if new_amount is not None:
+                        exp['amount'] = new_amount
+                        break
+                else:
+                    break
+            while True:
+                new_date = input("Enter new date(if needed): ")
+                if new_date:
+                    new_date = valid_date(new_date)
+                    if new_date:
                         exp['date'] = new_date
                         break
-                    except ValueError:
-                        print("Invalid date format. Please use YYYY-MM-DD format.")
-                        new_date = input("Enter a valid new date or press Enter to keep the old date: ")
-                        if not new_date:
-                            break
+                else:
+                    break
 
             save_data(data)
             print(f"Expense with ID {update_id} updated successfully.")
@@ -130,17 +143,19 @@ def main():
         if choice == "1":
             description = input("Enter Expense Description: ")
             while True:
-                try:
-                    amount = float(input("Enter Expense Amount: "))
-                    if amount < 0:
-                        print("Amount must be a positive number.")
-                        continue
+                amount = input("Enter Expense Amount: ")
+                amount = valid_amount(amount)
+                if amount is not None:
                     break
-                except ValueError:
-                    print("Invalid input. Please enter a numeric value.")
-            add_expense(description, amount)
+            while True:
+                date = input("Enter expense date (YYYY-MM-DD) or press Enter for today's date: ")
+                date = valid_date(date)
+                if date:
+                    break
+            add_expense(description, amount, date)
+
         elif choice == "2":
-            view_expenses()
+            view_expenses()    
         elif choice == "3":
             delete_expense()
         elif choice == "4":
@@ -153,13 +168,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
-
-
-
+    
