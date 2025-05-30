@@ -163,7 +163,7 @@ def filter_expenses():
         print("2. By Date (YYYY-MM-DD)")
         print("3. By Month and Year")
         print("4. By Amount")
-        print("5. Return to Main Menu")
+        print("4. Return to Main Menu")
 
         choice = input("Enter your choice: ").strip()
 
@@ -310,6 +310,158 @@ def update_expense():
     
     input("\nPress Enter to return to the main menu...")
 
+def summarize_expenses():
+    data = load_data()
+    expenses = data["expenses"] 
+
+    if not expenses:
+        print("No expenses recorded.")
+        return
+
+    print("\n=== Summarize Menu ===")
+    print("1. By Category")
+    print("2. By Month")
+    print("3. By Year")
+    print("4. By Month and Year")
+    print("5. By Category and Year")
+    print("6. Total Expenses Summary")
+
+    choice = input("Enter your choice number: ")
+
+    if choice == "1":
+        category = input("Enter the category to summarize: ").strip()
+        filtered = [exp for exp in data["expenses"] if exp.get("category", "General").lower() == category.lower()]
+
+        if not filtered:
+            print(f"No expenses found for category: {category}")
+        else:
+            total = sum(exp["amount"] for exp in filtered)
+            print(f"\nSummary for Category: {category}")
+            print(f"Total Expenses: ₹{total}")
+            print(f"Number of Records: {len(filtered)}")
+            for exp in filtered:
+                print(f"  ID: {exp['id']} | ₹{exp['amount']} | {exp['date']} | {exp['description']}")
+
+    elif choice == "2":
+        while True:
+            month_input = input("Enter the Month Number(e.g. 01 for January, 12 for December): ").strip()
+
+            if not month_input.isdigit() or not (1 <= int(month_input)<= 12):
+                print("Invalid month input. Please enter a valid number (01 to 12).")
+                continue
+
+            month_input = month_input.zfill(2)
+            filtered = [exp for exp in expenses if exp.get("date","")[5:7] == month_input]
+
+            if not filtered:
+                print(f"No expenses recorded in month: {month_input} ")
+                return
+            else:
+                total = sum(exp["amount"] for exp in filtered)
+                print(f"Total expenses in month {month_input}: {total}")
+                return
+
+    elif choice == "3":
+        while True:
+            year_input = input("Enter the Year: ").strip()
+
+            if not year_input.isdigit() or len(year_input) != 4:
+                print("Invalid year format. Please enter a 4-digit year.")
+                continue
+
+            filtered = [exp for exp in expenses if exp.get("date", "")[:4] == year_input]
+
+            if not filtered:
+                print(f"No expenses recorded in year: {year_input}")
+            else:
+                total = sum(exp["amount"] for exp in filtered)
+                print(f"Total expenses in year {year_input}: {total}")
+                return
+
+    elif choice == "4":
+        while True:
+            year_input = input("Enter a year (e.g., 2024): ").strip()
+            month_input = input("Enter a month number (e.g., 01 for January): ").strip()
+
+            if (not year_input.isdigit() or len(year_input) != 4) and (not month_input.isdigit() or not (1 <= int(month_input) <= 12)):
+                print("Invalid year and month.")
+                continue
+            if not year_input.isdigit() or len(year_input) != 4:
+                print("Invalid format. Please enter a 4-digit year.")
+                continue
+            if not month_input.isdigit() or not (1 <= int(month_input) <= 12):
+                print("Invalid month. Please enter a number from 01 to 12.")
+                continue
+            month_input = month_input.zfill(2)
+            filtered = [exp for exp in expenses if exp.get("date", "")[:4] == year_input and exp.get("date", "")[5:7] ==  month_input]
+
+            if not filtered:
+                print(f"No expenses found for {month_input}/{year_input}.")
+                return
+            else:
+                total = sum(exp["amount"] for exp in filtered)
+                print(f"Total expenses in {month_input}/{year_input}: {total}")
+                return
+
+    elif choice == "5":
+        while True:
+            all_categories = {exp.get("category", "General").lower() for exp in expenses}
+
+            print("Available Categories: ")
+            for cat in sorted(all_categories):
+                print(f" - {cat}")
+
+            category_input = input("Enter a category: ").strip()
+            
+            if category_input.lower() not in all_categories:
+                print(f"No '{category_input}'' category exists.")
+                continue
+
+            year_input = input("Enter a year (e.g., 2024): ").strip()
+
+            if not year_input.isdigit() or len(year_input) != 4:
+                print("Invalid year. Please enter a 4-digit number such 2024.")
+                continue
+
+            filtered = [exp for exp in expenses if exp.get("category", "General").lower() == category_input and exp.get("date", "")[:4] == year_input]
+
+            if not filtered:
+                print(f"No expenses found under Category '{category_input}' - Year{year_input}.")
+            else:
+                total = sum(exp["amount"] for exp in filtered)
+                print(f"Total expenses in category '{category_input}' for year {year_input}: {total}")
+                return
+
+    elif choice == "6":
+        total_count = len(expenses)
+        total_amount = sum(exp["amount"] for exp in expenses)
+        average = total_amount / total_count
+
+        print("\nExpense Summary: ")       
+        print(f"Total number of expenses: {total_count}")
+        print(f"Total number spent: ₹{total_amount:.2f}")
+        print(f"Average expense amount: ₹{average:.2f}")
+    
+    input("\nPress Enter to return to the main menu...")
+
+def search_by_keyword():
+    data = load_data()
+    keyword = input("Enter a keyword: ").strip().lower()
+
+    matching_expenses = []
+    for expense in data["expenses"]:
+        if keyword in expense["description"].lower():
+            matching_expenses.append(expense)
+
+    if not matching_expenses:
+        print("No matching expenses found.")
+    else:
+        print("\nMatching Expenses:")
+        for expense in matching_expenses:
+            print(f"ID: {expense['id']}, Description: {expense['description']}, Amount: {expense['amount']}, Date: {expense['date']}, Category: {expense.get('category', 'General')}")
+
+    input("\nPress Enter to return to the main menu...")
+
 def main():
     while True:
         print("\nExpense Tracker Menu")
@@ -318,7 +470,9 @@ def main():
         print("3. Delete expense")
         print("4. Update expense")
         print("5. Filter Expenses")
-        print("6. Exit")
+        print("6. Search Expenses by Keyword in Description")
+        print("7. Summarize Expenses")
+        print("8. Exit")
 
         choice = input("Enter Your Choice: ")
 
@@ -356,6 +510,10 @@ def main():
         elif choice == "5":
             filter_expenses()
         elif choice == "6":
+            search_by_keyword()
+        elif choice == "7":
+            summarize_expenses()
+        elif choice == "8":
             print("Goodbye!")
             break
         else:
