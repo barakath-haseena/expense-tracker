@@ -1,14 +1,19 @@
 from datetime import datetime
 import json
+import csv
+import os
+
 
 def load_data():
-    try:
-        with open("expenses.json", "r") as file:
-            return json.load(file)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {"last_id": 0, "expenses":[]}
+    if os.path.exists("expenses.json"):
+        with open("expenses.json", "r", encoding='utf-8') as file:
+            try:
+                return json.load(file)
+            except (FileNotFoundError, json.JSONDecodeError):
+                return {"expenses":[]}
+    return {"expenses":[]}
 
-def save_data(data):
+def save_data(data): 
     with open("expenses.json", "w") as file:
         json.dump(data, file, indent=4)
 
@@ -462,6 +467,27 @@ def search_by_keyword():
 
     input("\nPress Enter to return to the main menu...")
 
+def export_expenses_csv():
+    expenses = load_data().get("expenses", [])    
+    if not expenses:
+        print("No expenses to export.")
+        return
+
+    filename = input("Enter filename to save as (e.g., expenses.csv): ").strip()
+    if not filename:
+        filename = f"expenses_{datetime.now().strftime('%Y%m%d')}.csv"
+    elif not filename.endswith(".csv"):
+        filename += ".csv"
+
+    try:
+        with open(filename, mode='w', newline='', encoding='utf-8') as file:
+            writer = csv.DictWriter(file, fieldnames=["id", "description", "amount", "date", "category"])
+            writer.writeheader()
+            writer.writerows(expenses)
+        print(f"Expenses exported successfully to {filename}")
+    except Exception as e:
+        print("An error occurred while exporting:", e)
+
 def main():
     while True:
         print("\nExpense Tracker Menu")
@@ -472,7 +498,8 @@ def main():
         print("5. Filter Expenses")
         print("6. Search Expenses by Keyword in Description")
         print("7. Summarize Expenses")
-        print("8. Exit")
+        print("8. Export to CSV")
+        print("9. Exit")
 
         choice = input("Enter Your Choice: ")
 
@@ -514,6 +541,8 @@ def main():
         elif choice == "7":
             summarize_expenses()
         elif choice == "8":
+            export_expenses_csv()
+        elif choice == "9":
             print("Goodbye!")
             break
         else:
