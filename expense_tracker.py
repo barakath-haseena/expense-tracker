@@ -2,6 +2,8 @@ from datetime import datetime
 import json
 import csv
 import os
+import matplotlib.pyplot as plt
+from collections import defaultdict
 
 
 def load_data():
@@ -488,6 +490,50 @@ def export_expenses_csv():
     except Exception as e:
         print("An error occurred while exporting:", e)
 
+def visualize_monthlysum():
+    data = load_data()
+    expenses = data.get("expenses", [])
+
+    if not expenses:
+        print("No expenses to visualize.")
+        return
+    year = input("Enter year (YYYY): ").strip()
+    month = input("Enter month (01-12): ").strip().zfill(2)
+
+    filtered = [exp for exp in expenses if exp.get("date", "").startswith(f"{year}-{month}")]
+
+    if not filtered:
+        print(f"No expenses for {month}/{year}.")
+        return
+
+    category_totals = defaultdict(float)
+    for exp in filtered:
+        category = exp.get("category", "General")
+        category_totals[category] += exp['amount']
+
+    labels = list(category_totals.keys())
+    values = list(category_totals.values())
+
+    def make_label(pct, allvals):
+        total = sum(allvals)
+        absolute = int(round(pct/100.*total))
+        return f"{pct: .2f}%\n(₹{absolute})"
+
+    colors = plt.cm.Paired.colors
+
+    plt.figure(figsize=(8,8))
+    wedges, texts, autotexts = plt.pie(
+        values, labels=None, autopct=lambda pct: make_label(pct, values),
+        startangle=90, colors=colors, textprops=dict(color="black")
+        )
+    plt.legend(wedges, labels, title="Categories", loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
+    
+    plt.title(f"Expense Distribution - {month}/{year}")
+    plt.axis('equal')
+    plt.tight_layout()
+    plt.show()
+
+
 def main():
     while True:
         print("\nExpense Tracker Menu")
@@ -499,7 +545,8 @@ def main():
         print("6. Search Expenses by Keyword in Description")
         print("7. Summarize Expenses")
         print("8. Export to CSV")
-        print("9. Exit")
+        print("9. Visualize Monthly Summary")
+        print("10. Exit")
 
         choice = input("Enter Your Choice: ")
 
@@ -543,6 +590,8 @@ def main():
         elif choice == "8":
             export_expenses_csv()
         elif choice == "9":
+            visualize_monthlysum()
+        elif choice == "10":
             print("Goodbye!")
             break
         else:
