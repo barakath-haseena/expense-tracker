@@ -4,6 +4,8 @@ import csv
 import os
 import matplotlib.pyplot as plt
 from collections import defaultdict
+import customtkinter as ctk
+from tkinter import messagebox
 
 
 def load_data():
@@ -18,6 +20,27 @@ def load_data():
 def save_data(data): 
     with open("expenses.json", "w") as file:
         json.dump(data, file, indent=4)
+
+def add_expense(description, amount, date, category):
+    data = load_data()
+
+    existing_ids = [exp["id"] for exp in data["expenses"] if "id" in exp]
+    new_id = max(existing_ids, default = 0) + 1
+
+    data["last_id"] = new_id
+
+    new_expense = {
+    "id": new_id,
+    "description": description,
+    "amount": amount,
+    "date": date,
+    "category": category
+    }
+
+    data["expenses"].append(new_expense)
+    save_data(data)
+
+    print(f"Expense added successfully (ID: {new_id})")
 
 
 def valid_amount(amt_input):
@@ -44,27 +67,6 @@ def valid_date(date_input):
         return None
 
 
-def add_expense(description, amount, date, category):
-    data = load_data()
-
-    existing_ids = [exp["id"] for exp in data["expenses"] if "id" in exp]
-    new_id = max(existing_ids, default = 0) + 1
-
-    data["last_id"] = new_id
-
-    new_expense = {
-    "id": new_id,
-    "description": description,
-    "amount": amount,
-    "date": date,
-    "category": category
-    }
-
-    data["expenses"].append(new_expense)
-    save_data(data)
-
-    print(f"Expense added successfully (ID: {new_id})")
-    input("\nPress Enter to return to the main menu...")
 
 def choose_category():
     categories = ["Home", "Work", "Food", "Entertainment", "Custom"]
@@ -240,13 +242,52 @@ def filter_expenses():
 
 def view_expenses():
     data = load_data()
-    if len(data["expenses"]) == 0:
-        print("No expenses recorded.")
-    else:
-        print("Expenses List:")
-        for expense in data["expenses"]:
-            print(f"ID: {expense['id']}, Description: {expense['description']}, Amount: {expense['amount']}, Date: {expense['date']}, Category: {expense.get('category', 'General')} ")
-    input("\nPress Enter to return to the main menu...")
+    expenses = data.get("expenses", [])
+
+    if not expenses:
+        messagebox.showinfo("No Data", "No expenses to display.")
+        return
+
+    view_window = ctk.CTkToplevel()
+    view_window.title("All Expenses")
+    view_window.geometry("700x500")
+
+    scroll_frame = ctk.CTkScrollableFrame(view_window, width=680, height=450)
+    scroll_frame.pack(pady=10)
+
+    headers = ["ID", "Date", "Category", "Amount", "Description"]
+    for col, header in enumerate(headers):
+        label = ctk.CTkLabel(scroll_frame, text=header, font=ctk.CTkFont(weight="bold"))
+        label.grid(row=0, column=col, padx=5, pady=5)
+
+    for row, exp in enumerate(expenses, start=1):
+        ctk.CTkLabel(scroll_frame, text=str(exp["id"])).grid(row=row, column=0, padx=5, pady=2)
+        ctk.CTkLabel(scroll_frame, text=exp["date"]).grid(row=row, column=1, padx=5, pady=2)
+        ctk.CTkLabel(scroll_frame, text=exp["category"]).grid(row=row, column=2, padx=5, pady=2)
+        ctk.CTkLabel(scroll_frame, text=f"₹{exp['amount']}").grid(row=row, column=3, padx=5, pady=2)
+        ctk.CTkLabel(scroll_frame, text=exp["description"]).grid(row=row, column=4, padx=5, pady=2)
+        delete_btn = ctk.CTkButton(
+            scroll_frame,
+            text="🗑️",
+            width=30,
+            fg_color="transparent",
+            text_color="red",
+            command=lambda exid=exp["id"]: delete_expense_by_id(exid, view_window)
+        )
+        delete_btn.grid(row=row, column=5, padx=5)
+    
+    def delete_expense_by_id(exp_id, window):
+        data = load_data()
+        updated = [e for e in data["expenses"] if e["id"] != exp_id]
+
+        data["expenses"] = updated
+        save_data(data)
+        messagebox.showinfo("Deleted", f"Expense with ID {exp_id} deleted.")
+        window.destroy()
+        view_expenses()
+
+
+    text_widget.configure(state="disabled")
 
 def delete_expense():
     data = load_data()
@@ -514,24 +555,100 @@ def visualize_monthlysum():
     labels = list(category_totals.keys())
     values = list(category_totals.values())
 
+
     def make_label(pct, allvals):
         total = sum(allvals)
         absolute = int(round(pct/100.*total))
         return f"{pct: .2f}%\n(₹{absolute})"
 
     colors = plt.cm.Paired.colors
-
     plt.figure(figsize=(8,8))
+    
     wedges, texts, autotexts = plt.pie(
-        values, labels=None, autopct=lambda pct: make_label(pct, values),
+        values, labels=None, autopct= lambda pct: make_label(pct, values),
         startangle=90, colors=colors, textprops=dict(color="black")
         )
-    plt.legend(wedges, labels, title="Categories", loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
+    plt.legend(wedges, labels, title="Categories", loc="best")
     
     plt.title(f"Expense Distribution - {month}/{year}")
-    plt.axis('equal')
     plt.tight_layout()
+    plt.axis('equal')
     plt.show()
+
+
+    add_expense(description, amount, date, category)
+    result_label.configure(text="Expense added successfully!", text_color="green")
+
+
+ctk.set_appearance_mode("System")
+ctk.set_default_color_theme("blue")
+
+app = ctk.CTk()
+app.title("Expense Tracker")
+app.geometry("600x900")
+
+form_frame = ctk.CTkFrame(app)
+form_frame.pack(pady=30)
+
+ctk.CTkLabel(form_frame, text="Add New Expense", font=ctk.CTkFont(size=18, weight="bold")).grid(row=0, column=0, columnspan=2, pady=10)
+
+ctk.CTkLabel(form_frame, text="Description:").grid(row=1, column=0, padx=10, pady=5, sticky="e")
+desc_entry = ctk.CTkEntry(form_frame, width=300)
+desc_entry.grid(row=1, column=1, padx=10, pady=5)
+
+ctk.CTkLabel(form_frame, text="Amount:").grid(row=2, column=0, padx=10, pady=5, sticky="e")
+amt_entry = ctk.CTkEntry(form_frame, width=300)
+amt_entry.grid(row=2, column=1, padx=10, pady=5)
+
+ctk.CTkLabel(form_frame, text="Date (YYYY-MM-DD):").grid(row=3, column=0, padx=10, pady=5, sticky="e")
+date_entry = ctk.CTkEntry(form_frame, width=300)
+date_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
+date_entry.grid(row=3, column=1, padx=10, pady=5)
+
+ctk.CTkLabel(form_frame, text="Category:").grid(row=4, column=0, padx=10, pady=5, sticky="e")
+category_option = ctk.CTkOptionMenu(form_frame, values=["Home", "Work", "Food", "Entertainment", "Other"])
+category_option.grid(row=4, column=1, padx=10, pady=5)
+
+
+
+def submit_expense():
+    description = desc_entry.get()
+    amount = amt_entry.get()
+    date = date_entry.get()
+    category = category_option.get()
+
+    if not description or not amount:
+        result_label.configure(text="Description and Amount are required!", text_color="red")
+        return
+
+    try:
+        amount = float(amount)
+        if amount <= 0:
+            result_label.configure(text="Amount must be a positive number!", text_color="red")
+            return
+    except ValueError:
+        result_label.configure(text="Amount must be a number!", text_color="red")
+        return
+
+    add_expense(description, amount, date, category)
+    result_label.configure(text="Expense added successfully!", text_color="green")
+
+    desc_entry.delete(0, 'end')
+    amt_entry.delete(0, 'end')
+
+result_label = ctk.CTkLabel(form_frame, text="")
+result_label.grid(row=6, column=0, columnspan=2)
+
+button_frame = ctk.CTkFrame(form_frame)
+button_frame.grid(row=7, column=0, columnspan=2, pady=10)
+
+submit_btn = ctk.CTkButton(button_frame, text="Add Expense", command=submit_expense)
+submit_btn.pack(side="left", padx=10)
+
+view_btn = ctk.CTkButton(button_frame, text="View Expenses", command=view_expenses)
+view_btn.pack(side="left", padx=10)
+
+app.mainloop()
 
 
 def main():
