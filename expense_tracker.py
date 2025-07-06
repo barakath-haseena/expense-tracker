@@ -892,7 +892,7 @@ def modify_expenses_gui():
         update_btn.grid(row=row, column=6, padx=(5, 5), sticky="w")
 
 # ------------------- Main GUI-------------------
-ctk.set_appearance_mode("System")
+ctk.set_appearance_mode("Light")
 ctk.set_default_color_theme("blue")
 
 app = ctk.CTk()
@@ -901,7 +901,24 @@ app.geometry("1000x620")
 
 calendar_widget_home = [None]
 
+# ------------------- Top Bar with Theme Toggle ------------------- #
+def toggle_theme():
+    current_mode = ctk.get_appearance_mode()
+    if current_mode == "Light":
+        ctk.set_appearance_mode("Dark")
+    else:
+        ctk.set_appearance_mode("Light")
+
+top_bar = ctk.CTkFrame(app, fg_color="transparent")
+top_bar.pack(fill="x", padx=20, pady=(10, 0))
+
+theme_toggle_btn = ctk.CTkButton(
+    top_bar, text="🌗 Toggle Theme", command=toggle_theme, width=130
+)
+theme_toggle_btn.pack(side="right", anchor="ne")
+
 # ------------------- Combined Main Layout -------------------
+
 main_content_wrapper = ctk.CTkFrame(app)
 main_content_wrapper.pack(padx=20, pady=20, fill="both", expand=True)
 
@@ -909,8 +926,10 @@ left_main_area = ctk.CTkFrame(main_content_wrapper)
 left_main_area.pack(side="left", fill="both", expand=True)
 
 # ------------------- Add Expense Form -------------------
+
 form_frame = ctk.CTkFrame(left_main_area)
 form_frame.pack(pady=10)
+form_frame.pack_propagate(False) 
 
 ctk.CTkLabel(form_frame, text="Add New Expense", font=ctk.CTkFont(size=18, weight="bold")).grid(row=0, column=0, columnspan=2, pady=10)
 
@@ -931,14 +950,22 @@ date_entry = ctk.CTkEntry(date_frame, width=240)
 date_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
 date_entry.pack(side="left", padx=(0, 5))
 
+calendar_widget_home = [None]
+
 def toggle_calendar_home():
     if calendar_widget_home[0]:
         calendar_widget_home[0].destroy()
         calendar_widget_home[0] = None
     else:
-        cal = Calendar(form_frame, selectmode='day', date_pattern='yyyy-mm-dd', showweeknumbers=False)
-        cal.grid(row=4, column=1, columnspan=2, pady=(0, 10))
+        cal = Calendar(
+            master=form_frame,
+            selectmode='day',
+            date_pattern='yyyy-mm-dd',
+            showweeknumbers=False
+        )
         calendar_widget_home[0] = cal
+
+        cal.place(x=320, y=140)
 
         def on_select(event=None):
             selected_date = cal.get_date()
@@ -948,6 +975,7 @@ def toggle_calendar_home():
             calendar_widget_home[0] = None
 
         cal.bind("<<CalendarSelected>>", on_select)
+
 
 ctk.CTkButton(date_frame, text="📅", width=40, command=toggle_calendar_home).pack(side="left")
 
@@ -979,42 +1007,88 @@ summary_btn.pack(side="left", padx=10)
 modify_btn = ctk.CTkButton(button_frame, text="Modify Expense", command=modify_expenses_gui)
 modify_btn.pack(side="left", padx=10)
 
-# ------------------- Right Dashboard Summary -------------------
-right_summary_panel = ctk.CTkFrame(main_content_wrapper, width=250, corner_radius=15, fg_color="#ECECEC")
+
+# ------------------- Dashboard Summary -------------------
+
+right_summary_panel = ctk.CTkFrame(
+    main_content_wrapper,
+    width=260,
+    corner_radius=15,
+    fg_color="transparent"  # Or leave default
+)
 right_summary_panel.pack(side="right", padx=(15, 0), fill="y")
 
-title_label = ctk.CTkLabel(
+scrollable_dashboard = ctk.CTkScrollableFrame(
     right_summary_panel,
-    text="📊 Dashboard Summary",
-    font=ctk.CTkFont(size=20, weight="bold"),
-    text_color="black"
+    width=240,
+    corner_radius=0,
+    fg_color="transparent"
 )
-title_label.pack(pady=(20, 15))
+scrollable_dashboard.pack(fill="both", expand=True, pady=10, padx=10)
 
-card_row = ctk.CTkFrame(right_summary_panel, fg_color="transparent")
+# Dashboard Title
+ctk.CTkLabel(
+    scrollable_dashboard,
+    text="📊 Dashboard Summary",
+    font=ctk.CTkFont(size=20, weight="bold")
+).pack(pady=(10, 15))
+
+card_row = ctk.CTkFrame(scrollable_dashboard, fg_color="transparent")
 card_row.pack()
 
+from collections import Counter
 data = load_data()
 expenses = data.get("expenses", [])
 
+# ---- Dashboard Metrics ----
 total_spent = sum(exp["amount"] for exp in expenses)
 total_entries = len(expenses)
 categories = set(exp.get("category", "General") for exp in expenses)
 total_categories = len(categories)
 avg_expense = total_spent / total_entries if total_entries > 0 else 0
 
+category_counts = Counter(exp.get("category", "General") for exp in expenses)
+top_category = category_counts.most_common(1)[0][0] if category_counts else "N/A"
+
+highest_expense = max((exp["amount"] for exp in expenses), default=0)
+highest_expense_entry = next((exp for exp in expenses if exp["amount"] == highest_expense), None)
+costliest_day = highest_expense_entry.get("date") if highest_expense_entry else "N/A"
+
+least_used_category = (
+    min(category_counts.items(), key=lambda x: x[1])[0] if category_counts else "N/A"
+)
+
+lowest_expense = min((exp["amount"] for exp in expenses), default=0)
+
+date_counts = Counter(exp.get("date", "Unknown") for exp in expenses)
+most_active_day = date_counts.most_common(1)[0] if date_counts else ("N/A", 0)
+
+desc_counts = Counter(exp.get("description", "").strip().lower() for exp in expenses)
+recurring_desc = desc_counts.most_common(1)[0][0].title() if desc_counts else "N/A"
+
+# -------- All Dashboard Cards --------
 cards = [
     ("💰 Total", f"₹{total_spent:.2f}"),
     ("📂 Categories", str(total_categories)),
     ("🧾 Entries", str(total_entries)),
-    ("📉 Avg", f"₹{avg_expense:.2f}")
+    ("📉 Avg", f"₹{avg_expense:.2f}"),
+    ("💸 Top Category", top_category),
+    ("🔝 Highest Expense", f"₹{highest_expense:.2f}"),
+    ("📆 Costliest Day", costliest_day),
+    ("🧍‍♀️ Least Used", least_used_category),
+    ("📉 Lowest Expense", f"₹{lowest_expense:.2f}"),
+    ("🗓️ Most Active Day", f"{most_active_day[0]} ({most_active_day[1]} records)"),
+    ("🔁 Recurring Entry", recurring_desc)
 ]
 
+
 def create_stat_card(parent, title, value):
-    card = ctk.CTkFrame(parent, width=220, height=80, corner_radius=10, fg_color="#F5F5F5")
+    card = ctk.CTkFrame(
+        parent, width=220, height=80, corner_radius=10
+    )
     card.pack_propagate(False)
-    title_label = ctk.CTkLabel(card, text=title, font=ctk.CTkFont(size=13), text_color="#333333")
-    value_label = ctk.CTkLabel(card, text=value, font=ctk.CTkFont(size=18, weight="bold"), text_color="black")
+    title_label = ctk.CTkLabel(card, text=title, font=ctk.CTkFont(size=13))
+    value_label = ctk.CTkLabel(card, text=value, font=ctk.CTkFont(size=18, weight="bold"))
     title_label.pack(pady=(10, 3))
     value_label.pack()
     card.pack(pady=10)
@@ -1023,72 +1097,3 @@ for title, value in cards:
     create_stat_card(card_row, title, value)
 
 app.mainloop()
-
-# ------------------- Main-------------------
-def main():
-    while True:
-
-        print("\nExpense Tracker Menu")
-        print("1. Add Expense")
-        print("2. View Expenses")
-        print("3. Delete expense")
-        print("4. Update expense")
-        print("5. Filter Expenses")
-        print("6. Search Expenses by Keyword in Description")
-        print("7. Summarize Expenses")
-        print("8. Export to CSV")
-        print("9. Visualize Monthly Summary")
-        print("10. Exit")
-
-        choice = input("Enter Your Choice: ")
-
-        if choice == "1":
-            while True:
-                description = input("Enter Expense Description: ").strip()   
-                if description:
-                    break
-                else:
-                    print("Description cannot be empty.")
-            
-
-            while True:
-                amount = input("Enter Expense Amount: ")
-                amount = valid_amount(amount)
-                if amount is not None:
-                    break
-
-            while True:
-                date = input("Enter expense date (YYYY-MM-DD) or press Enter for today's date: ")
-                date = valid_date(date)
-                if date:
-                    break
-
-            category = choose_category()
-
-            add_expense(description, amount, date, category)
-
-        elif choice == "2":
-            view_expenses()    
-        elif choice == "3":
-            delete_expense()
-        elif choice == "4":
-            update_expense()
-        elif choice == "5":
-            filter_expenses()
-        elif choice == "6":
-            search_by_keyword()
-        elif choice == "7":
-            summarize_expenses()
-        elif choice == "8":
-            export_expenses_csv()
-        elif choice == "9":
-            visualize_monthlysum()
-        elif choice == "10":
-            print("Goodbye!")
-            break
-        else:
-            print("Invalid Choice, please try again.")
-
-if __name__ == "__main__":
-    main()
-    
