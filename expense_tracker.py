@@ -774,33 +774,30 @@ def open_update_popup(expense, parent_window):
     amt_entry.grid(row=2, column=1, padx=10, pady=5)
 
     # --- Date ---
-    ctk.CTkLabel(content_frame, text="Date (YYYY-MM-DD):").grid(row=3, column=0, sticky="e", padx=10, pady=5)
+    ctk.CTkLabel(content_frame, text="Date (YYYY-MM-DD):").grid(row=3, column=0, sticky="e", padx=(10,15), pady=5)
 
-    date_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
-    date_frame.grid(row=3, column=1, sticky="w")
+    update_date_entry = ctk.CTkEntry(content_frame, width=190)
+    update_date_entry.insert(0, expense["date"])
+    update_date_entry.grid(row=3, column=1, sticky="w", padx=(0, 80), pady=5)
 
-    date_entry = ctk.CTkEntry(date_frame, width=190)
-    date_entry.insert(0, expense["date"])
-    date_entry.pack(side="left", padx=(0, 5))
-
-    cal_btn = ctk.CTkButton(date_frame, text="📅", width=40, command=toggle_calendar)
-    cal_btn.pack(side="left")
-
+    cal_btn = ctk.CTkButton(content_frame, text="📅", width=40, command=toggle_calendar)
+    cal_btn.grid(row=3, column=1, sticky="e", padx=(5, 5), pady=5)
+    
     # --- Category ---
     ctk.CTkLabel(content_frame, text="Category:").grid(row=5, column=0, sticky="e", padx=10, pady=5)
     category_option = ctk.CTkOptionMenu(content_frame, values=["Home", "Work", "Food", "Entertainment", "Other"])
     category_option.set(expense.get("category", "Other"))
-    category_option.grid(row=5, column=1, padx=10, pady=5, sticky="w")
+    category_option.grid(row=4, column=1, padx=10, pady=5, sticky="w")
 
     # --- Result Label ---
     result_label = ctk.CTkLabel(content_frame, text="", text_color="red")
-    result_label.grid(row=6, column=0, columnspan=2, pady=(10, 5))
+    result_label.grid(row=5, column=0, columnspan=2, pady=(10, 5))
 
     # --- Save Button ---
     def save_changes():
         new_desc = desc_entry.get().strip()
         new_amt = amt_entry.get().strip()
-        new_date = date_entry.get().strip()
+        new_date = update_date_entry.get().strip()
         new_category = category_option.get()
 
         if not new_desc or not new_amt:
@@ -837,7 +834,7 @@ def open_update_popup(expense, parent_window):
         modify_expenses_gui()
 
     save_btn = ctk.CTkButton(content_frame, text="Save Changes", command=save_changes)
-    save_btn.grid(row=7, column=0, columnspan=2, pady=15)
+    save_btn.grid(row=6, column=0, columnspan=2, pady=15)
 
 def modify_expenses_gui():
     data = load_data()
@@ -944,9 +941,9 @@ amt_entry.grid(row=2, column=1, padx=10, pady=5)
 ctk.CTkLabel(form_frame, text="Date (YYYY-MM-DD):").grid(row=3, column=0, padx=10, pady=5, sticky="e")
 
 date_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
-date_frame.grid(row=3, column=1, padx=10, pady=5, sticky="w")
+date_frame.grid(row=3, column=1, sticky="w", padx=(20, 10), pady=5)
 
-date_entry = ctk.CTkEntry(date_frame, width=240)
+date_entry = ctk.CTkEntry(date_frame, width=190)
 date_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
 date_entry.pack(side="left", padx=(0, 5))
 
@@ -976,8 +973,275 @@ def toggle_calendar_home():
 
         cal.bind("<<CalendarSelected>>", on_select)
 
-
 ctk.CTkButton(date_frame, text="📅", width=40, command=toggle_calendar_home).pack(side="left")
+
+filter_menu_popup = ctk.CTkFrame(app, width=200, fg_color="#f0f0f0", corner_radius=8)
+filter_menu_popup.place_forget()
+
+filter_btn = ctk.CTkButton(form_frame, text="Filter Expenses")
+filter_btn.grid(row=8, column=0, columnspan=2, pady=(5,10))
+
+hide_menu_after_id = [None]
+
+def show_filter_menu(event=None):
+    if hide_menu_after_id[0] is not None:
+        app.after_cancel(hide_menu_after_id[0])
+        hide_menu_after_id[0] = None
+
+    x = filter_btn.winfo_rootx() - app.winfo_rootx()
+    y = filter_btn.winfo_rooty() - app.winfo_rooty() + filter_btn.winfo_height()
+    filter_menu_popup.place(x=x, y=y)
+
+def hide_filter_menu_delayed(event=None):
+    def hide_now():
+        filter_menu_popup.place_forget()
+        hide_menu_after_id[0] = None
+
+    hide_menu_after_id[0] = app.after(400, hide_now)
+
+def open_filter_by_category():
+    popup = ctk.CTkToplevel(app)
+    popup.title("Select Category")
+    popup.geometry("300x180")
+
+    ctk.CTkLabel(popup, text="Choose a category to filter by:", font=ctk.CTkFont(size=14)).pack(pady=10)
+
+    category_menu = ctk.CTkOptionMenu(
+        popup, 
+        values=["Home", "Work", "Food", "Entertainment", "Other"]
+    )
+    category_menu.pack(pady=10)
+
+    def on_confirm():
+        selected = category_menu.get()
+        popup.destroy()
+        filter_by_category(selected)
+
+    ctk.CTkButton(popup, text="Apply Filter", command=on_confirm).pack(pady=10)
+
+def open_filter_by_date():
+    popup = ctk.CTkToplevel(app)
+    popup.title("Select Date")
+    popup.geometry("300x300")
+
+    ctk.CTkLabel(popup, text="Pick a date to filter by:", font=ctk.CTkFont(size=14)).pack(pady=10)
+
+    cal = Calendar(popup, selectmode='day', date_pattern='yyyy-mm-dd')
+    cal.pack(pady=10)
+
+    def on_confirm():
+        selected = cal.get_date()
+        popup.destroy()
+        filter_by_date(selected)
+
+    ctk.CTkButton(popup, text="Apply Filter", command=on_confirm).pack(pady=10)
+
+def open_filter_by_month_year():
+    popup = ctk.CTkToplevel(app)
+    popup.title("Filter by Month & Year")
+    popup.geometry("300x250")
+
+    ctk.CTkLabel(popup, text="Select Month and Year:", font=ctk.CTkFont(size=14)).pack(pady=10)
+
+    month_menu = ctk.CTkOptionMenu(popup, values=[str(m).zfill(2) for m in range(1, 13)])
+    month_menu.pack(pady=5)
+
+    year_menu = ctk.CTkOptionMenu(popup, values=[str(y) for y in range(2020, datetime.now().year + 2)])
+    year_menu.pack(pady=5)
+
+    def on_confirm():
+        month = month_menu.get()
+        year = year_menu.get()
+        popup.destroy()
+        filter_by_month_year(month, year)
+
+    ctk.CTkButton(popup, text="Apply Filter", command=on_confirm).pack(pady=10)
+
+
+def open_amount_filter_menu():
+    popup = ctk.CTkToplevel(app)
+    popup.title("Filter by Amount")
+    popup.geometry("380x320")
+
+    ctk.CTkLabel(popup, text="Choose how to filter by amount:", font=ctk.CTkFont(size=15, weight="bold")).pack(pady=(10, 5))
+
+    filter_type = ctk.StringVar(value="more")
+
+    radio_frame = ctk.CTkFrame(popup, fg_color="transparent")
+    radio_frame.pack(pady=10)
+
+    ctk.CTkRadioButton(radio_frame, text="More than ₹", variable=filter_type, value="more").pack(anchor="w")
+    ctk.CTkRadioButton(radio_frame, text="Less than ₹", variable=filter_type, value="less").pack(anchor="w")
+    ctk.CTkRadioButton(radio_frame, text="Between ₹ Min and ₹ Max", variable=filter_type, value="between").pack(anchor="w")
+
+    slider_frame = ctk.CTkFrame(popup, fg_color="transparent")
+    slider_frame.pack(pady=15)
+
+    single_value = ctk.DoubleVar(value=100)
+    min_value = ctk.DoubleVar(value=100)
+    max_value = ctk.DoubleVar(value=500)
+
+    single_slider_label = ctk.CTkLabel(slider_frame, text=f"₹{single_value.get():.0f}")
+    single_slider = ctk.CTkSlider(
+        slider_frame, from_=0, to=10000, variable=single_value,
+        command=lambda v: single_slider_label.configure(text=f"₹{v:.0f}")
+    )
+
+    min_slider_label = ctk.CTkLabel(slider_frame, text=f"Min ₹{min_value.get():.0f}")
+    min_slider = ctk.CTkSlider(
+        slider_frame, from_=0, to=10000, variable=min_value,
+        command=lambda v: min_slider_label.configure(text=f"Min ₹{v:.0f}")
+    )
+
+    max_slider_label = ctk.CTkLabel(slider_frame, text=f"Max ₹{max_value.get():.0f}")
+    max_slider = ctk.CTkSlider(
+        slider_frame, from_=0, to=10000, variable=max_value,
+        command=lambda v: max_slider_label.configure(text=f"Max ₹{v:.0f}")
+    )
+
+    def update_sliders(*args):
+        for widget in slider_frame.winfo_children():
+            widget.pack_forget()
+
+        if filter_type.get() in ["more", "less"]:
+            single_slider_label.pack()
+            single_slider.pack(padx=20, pady=(0, 10))
+        else:
+            min_slider_label.pack()
+            min_slider.pack(padx=20, pady=(0, 10))
+            max_slider_label.pack()
+            max_slider.pack(padx=20, pady=(0, 10))
+
+    filter_type.trace_add("write", update_sliders)
+    update_sliders()
+
+    def apply_amount_filter():
+        popup.destroy()
+        if filter_type.get() == "more":
+            filter_by_amount_greater_than(single_value.get())
+        elif filter_type.get() == "less":
+            filter_by_amount_less_than(single_value.get())
+        else:
+            min_val = min(min_value.get(), max_value.get())
+            max_val = max(min_value.get(), max_value.get())
+            filter_by_amount_between(min_val, max_val)
+
+    ctk.CTkButton(popup, text="Apply Filter", command=apply_amount_filter).pack(pady=10)
+
+options = [
+    ("Filter by Category", lambda: open_filter_by_category()),
+    ("Filter by Date", lambda: open_filter_by_date()),
+    ("Filter by Month & Year", lambda: open_filter_by_month_year()),
+    ("Filter by Amount", lambda: open_amount_filter_menu())
+]
+
+fg_color = "#dcdcdc" 
+hover_color = "#c0c0c0"
+text_color = "white" if ctk.get_appearance_mode() == "Dark" else "black"
+for text, cmd in options:
+    btn = ctk.CTkButton(filter_menu_popup, text=text, command=cmd, fg_color=fg_color, hover_color=hover_color, text_color=text_color,font=ctk.CTkFont(size=13))
+
+    btn.pack(fill="x", pady=2, padx=4)
+
+    btn.bind("<Enter>", show_filter_menu)
+    btn.bind("<Leave>", hide_filter_menu_delayed)
+
+filter_btn.bind("<Enter>", show_filter_menu)
+filter_btn.bind("<Leave>", hide_filter_menu_delayed)
+
+filter_menu_popup.bind("<Enter>", show_filter_menu)
+filter_menu_popup.bind("<Leave>", hide_filter_menu_delayed)
+
+def show_filtered_expenses(filtered):
+    if not filtered:
+        messagebox.showinfo("No Results", "No expenses found for the selected filter.")
+        return
+
+    window = ctk.CTkToplevel(app)
+    window.title("Filtered Expenses")
+    window.geometry("600x400")
+
+    ctk.CTkLabel(window, text="Filtered Expenses", font=ctk.CTkFont(size=16, weight="bold")).pack(pady=10)
+
+    list_frame = ctk.CTkScrollableFrame(window, width=560, height=300)
+    list_frame.pack(pady=10)
+
+    for i, exp in enumerate(filtered, start=1):
+        text = f"{i}. {exp['description']} | ₹{exp['amount']} | {exp['date']} | {exp['category']}"
+        ctk.CTkLabel(list_frame, text=text, anchor="w").pack(fill="x", padx=10, pady=2)
+
+def filter_by_category(selected_category):
+    data = load_data()
+    expenses = data.get("expenses", [])
+
+    filtered = [exp for exp in expenses if exp.get("category") == selected_category]
+
+    if not filtered:
+        messagebox.showinfo("No Results", f"No expenses found in category: {selected_category}")
+    else:
+        show_filtered_expenses(filtered)
+
+def filter_by_date(selected_date):
+    data = load_data()
+    expenses = data.get("expenses", [])
+
+    filtered = [exp for exp in expenses if exp.get("date") == selected_date]
+
+    if not filtered:
+        messagebox.showinfo("No results", f"No expenses on: {selected_date}")
+    else:
+        show_filtered_expenses(filtered)
+
+def filter_by_month_year(month, year):
+    data = load_data()
+    expenses = data.get("expenses", [])
+
+    filtered = [
+        exp for exp in expenses 
+        if exp.get("date", "").startswith(f"{year}-{str(month).zfill(2)}")
+    ]
+
+    if not filtered:
+        messagebox.showinfo("No Results", f"No expenses in {month}/{year}")
+    else:
+        show_filtered_expenses(filtered)
+
+def filter_by_amount_greater_than(x):
+    data = load_data()
+    expenses = data.get("expenses", [])
+
+    filtered = [exp for exp in expenses if exp.get("amount", 0) > x]
+
+    if not filtered:
+        messagebox.showinfo("No Results", f"No expenses greater than ₹{x}")
+    else:
+        show_filtered_expenses(filtered)
+
+def filter_by_amount_less_than(x):
+    data = load_data()
+    expenses = data.get("expenses", [])
+
+    filtered = [exp for exp in expenses if exp.get("amount", 0) < x]
+
+    if not filtered:
+        messagebox.showinfo("No Results", f"No expenses less than ₹{x}")
+    else:
+        show_filtered_expenses(filtered)
+
+def filter_by_amount_between(min_amt, max_amt):
+    data = load_data()
+    expenses = data.get("expenses", [])
+
+    filtered = [
+        exp for exp in expenses 
+        if min_amt <= exp.get("amount", 0) <= max_amt
+    ]
+
+    if not filtered:
+        messagebox.showinfo("No Results", f"No expenses between ₹{min_amt} and ₹{max_amt}")
+    else:
+        show_filtered_expenses(filtered)
+
 
 ctk.CTkLabel(form_frame, text="Category:").grid(row=4, column=0, padx=10, pady=5, sticky="e")
 category_option = ctk.CTkOptionMenu(form_frame, values=["Home", "Work", "Food", "Entertainment", "Other"])
@@ -1006,6 +1270,7 @@ summary_btn.pack(side="left", padx=10)
 
 modify_btn = ctk.CTkButton(button_frame, text="Modify Expense", command=modify_expenses_gui)
 modify_btn.pack(side="left", padx=10)
+
 
 
 # ------------------- Dashboard Summary -------------------
