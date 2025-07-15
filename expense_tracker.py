@@ -10,18 +10,57 @@ from tkcalendar import Calendar
 
 
 # ------------------- Data Handling -------------------
+DATA_FILE = os.path.join("data", "expenses.json")
+
 def load_data():
-    if os.path.exists("expenses.json"):
-        with open("expenses.json", "r", encoding='utf-8') as file:
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r", encoding='utf-8') as file:
             try:
                 return json.load(file)
-            except (FileNotFoundError, json.JSONDecodeError):
-                return {"expenses":[]}
-    return {"expenses":[]}
+            except json.JSONDecodeError:
+                return {"expenses": []}
+    return {"expenses": []}
 
-def save_data(data): 
-    with open("expenses.json", "w") as file:
+def save_data(data):
+    os.makedirs("data", exist_ok=True)
+    with open(DATA_FILE, "w", encoding='utf-8') as file:
         json.dump(data, file, indent=4)
+        
+def backup_data():
+    os.makedirs("backups", exist_ok=True)
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    backup_path = os.path.join("backups", f"expenses_backup_{timestamp}.json")
+
+    try:
+        shutil.copy("data/expenses.json", backup_path)
+        messagebox.showinfo("Backup Successful", f"Backup saved to {backup_path}")
+    except Exception as e:
+        messagebox.showerror("Backup Failed", str(e))
+
+
+# ------------------- Validation -------------------
+def valid_amount(amt_input):
+    try:
+        amt_input = float(amt_input)
+        if amt_input > 0:
+            return amt_input
+        else:
+            print("Amount must be a positive number.")
+            return None
+    except ValueError:
+        print("Invalid amount. Please try again.")
+        return None
+
+def valid_date(date_input):
+    try:
+        if not date_input:
+            return datetime.now().strftime("%Y-%m-%d")   
+        else:
+            datetime.strptime(date_input, "%Y-%m-%d")
+            return date_input
+    except ValueError:
+        print("Invalid Date Format. Please try again.")
+        return None
 
 # ------------------- Expense Logic -------------------
 def add_expense(description, amount, date, category):
@@ -65,6 +104,8 @@ def delete_expense():
 
     input("\nPress Enter to return to the main menu...")
 
+
+
 def update_expense():
     data = load_data()
     try:
@@ -72,7 +113,6 @@ def update_expense():
     except ValueError:
         print("Invalid input. Please enter a numeric ID.")  
         return
-
 
     for exp in data["expenses"]:
         if exp['id'] == update_id:
@@ -114,29 +154,6 @@ def update_expense():
     
     input("\nPress Enter to return to the main menu...")
 
-# ------------------- Validation -------------------
-def valid_amount(amt_input):
-    try:
-        amt_input = float(amt_input)
-        if amt_input > 0:
-            return amt_input
-        else:
-            print("Amount must be a positive number.")
-            return None
-    except ValueError:
-        print("Invalid amount. Please try again.")
-        return None
-
-def valid_date(date_input):
-    try:
-        if not date_input:
-            return datetime.now().strftime("%Y-%m-%d")   
-        else:
-            datetime.strptime(date_input, "%Y-%m-%d")
-            return date_input
-    except ValueError:
-        print("Invalid Date Format. Please try again.")
-        return None
 
 # ------------------- Choose Category -------------------
 def choose_category():
@@ -193,7 +210,7 @@ def filter_expenses():
                     selected = int(input("Choose a category number: "))
                     if 1 <= selected <= len(unique_categories):
                         selected_category = unique_categories[selected - 1]
-                        filtered = [exp for exp in data["expenses"] if exp.get("category", "General") ==  selected_category]
+                        filtered = [exp for exp in data["expenses"] if exp.get("category", "General").lower() ==  selected_category.lower()]
                         label = f"category '{selected_category}'"
                         break
                     else:
@@ -661,8 +678,11 @@ def export_to_csv_gui():
             writer.writerows(expenses)
 
         messagebox.showinfo("Success", "Expenses exported to 'expenses_export.csv'.")
-    except Exception as e:
-        messagebox.showerror("Error", f"Export failed: {e}")    
+    except PermissionError:
+        messagebox.showerror("Permission Denied", "Cannot write to the file. It's open or you lack permissions.")
+    except OSError as e:
+        messagebox.showerror("File Error", f"System error: {e}")
+
 
 def open_summary_window():
     summary_window = ctk.CTkToplevel()
@@ -753,7 +773,6 @@ def open_update_popup(expense, parent_window):
 
             cal.bind("<<CalendarSelected>>", on_select)
 
-    # Frame to center everything inside popup
     content_frame = ctk.CTkFrame(popup)
     content_frame.pack(pady=30)
 
@@ -859,6 +878,11 @@ def modify_expenses_gui():
     label = ctk.CTkLabel(scroll_frame, text="Actions", font=ctk.CTkFont(weight="bold"))
     label.grid(row=0, column=5, columnspan=2, padx=5, pady=5)
 
+    def confirm_delete(exid):
+        confirm = messagebox.askyesno("Confirm Deletion", "Are you sure you want to delete this expense?")
+        if confirm:
+            delete_expense_by_id(exid, modify_window)
+
     for row, exp in enumerate(expenses, start=1):
         ctk.CTkLabel(scroll_frame, text=str(exp["id"])).grid(row=row, column=0, padx=5, pady=2)
         ctk.CTkLabel(scroll_frame, text=exp["date"]).grid(row=row, column=1, padx=5, pady=2)
@@ -866,18 +890,16 @@ def modify_expenses_gui():
         ctk.CTkLabel(scroll_frame, text=f"₹{exp['amount']}").grid(row=row, column=3, padx=5, pady=2)
         ctk.CTkLabel(scroll_frame, text=exp["description"]).grid(row=row, column=4, padx=5, pady=2)
 
-        # 🗑️ Delete Button
         delete_btn = ctk.CTkButton(
             scroll_frame,
             text="🗑️",
             width=40,
             fg_color="transparent",
             text_color="red",
-            command=lambda exid=exp["id"]: delete_expense_by_id(exid, modify_window)
+            command=lambda exid=exp["id"]: confirm_delete(exid)
         )
         delete_btn.grid(row=row, column=5, padx=5, sticky="e")
 
-        # ✏️ Update Button
         update_btn = ctk.CTkButton(
             scroll_frame,
             text="✏️",
@@ -915,7 +937,6 @@ theme_toggle_btn = ctk.CTkButton(
 theme_toggle_btn.pack(side="right", anchor="ne")
 
 # ------------------- Combined Main Layout -------------------
-
 main_content_wrapper = ctk.CTkFrame(app)
 main_content_wrapper.pack(padx=20, pady=20, fill="both", expand=True)
 
@@ -923,7 +944,6 @@ left_main_area = ctk.CTkFrame(main_content_wrapper)
 left_main_area.pack(side="left", fill="both", expand=True)
 
 # ------------------- Add Expense Form -------------------
-
 form_frame = ctk.CTkFrame(left_main_area)
 form_frame.pack(pady=10)
 form_frame.pack_propagate(False) 
@@ -1159,12 +1179,47 @@ def show_filtered_expenses(filtered):
 
     window = ctk.CTkToplevel(app)
     window.title("Filtered Expenses")
-    window.geometry("600x400")
+    window.geometry("700x600")
 
-    ctk.CTkLabel(window, text="Filtered Expenses", font=ctk.CTkFont(size=16, weight="bold")).pack(pady=10)
+    def export_filtered(filtered_data):
+        if not filtered_data:
+            messagebox.showinfo("No Data", "Nothing to export.")
+            return
+        try:
+            export_folder = "exports"
+            os.makedirs(export_folder, exist_ok=True)
+            timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            filename = os.path.join(export_folder, f"filtered_export_{timestamp}.csv")
+            with open(filename, "w", newline="", encoding='utf-8') as f:
+                writer = csv.DictWriter(f, fieldnames=["id", "description", "amount", "date", "category"])
+                writer.writeheader()
+                writer.writerows(filtered_data)
+            messagebox.showinfo("Success", f"Exported to '{filename}'")
+        except PermissionError:
+            messagebox.showerror("Permission Denied", "Cannot write to the file. Check permissions.")
+        except Exception as e:
+            messagebox.showerror("Export Error", str(e))
 
-    list_frame = ctk.CTkScrollableFrame(window, width=560, height=300)
-    list_frame.pack(pady=10)
+    header_frame = ctk.CTkFrame(window, fg_color="transparent")
+    header_frame.pack(fill="x", padx=10, pady=(10, 5))
+
+    ctk.CTkLabel(
+        header_frame,
+        text="Filtered Expenses",
+        font=ctk.CTkFont(size=18, weight="bold"),
+        anchor="w"
+    ).grid(row=0, column=0, sticky="w")
+
+    ctk.CTkButton(
+        header_frame,
+        text="📤 Export These Results",
+        fg_color="#1f6aa5",
+        text_color="white",
+        command=lambda: export_filtered(filtered)
+    ).grid(row=0, column=1, sticky="e", padx=(10, 0))
+
+    list_frame = ctk.CTkScrollableFrame(window, width=660, height=450)
+    list_frame.pack(padx=10, pady=10)
 
     for i, exp in enumerate(filtered, start=1):
         text = f"{i}. {exp['description']} | ₹{exp['amount']} | {exp['date']} | {exp['category']}"
@@ -1247,17 +1302,17 @@ ctk.CTkLabel(form_frame, text="Category:").grid(row=4, column=0, padx=10, pady=5
 category_option = ctk.CTkOptionMenu(form_frame, values=["Home", "Work", "Food", "Entertainment", "Other"])
 category_option.grid(row=4, column=1, padx=10, pady=5)
 
+submit_btn = ctk.CTkButton(form_frame, text="Add Expense", command=submit_expense)
+submit_btn.grid(row=5, column=0, columnspan=2, pady=(10, 5))
+
 result_label = ctk.CTkLabel(form_frame, text="")
-result_label.grid(row=6, column=0, columnspan=2, pady=(10, 0))
+result_label.grid(row=6, column=0, columnspan=2, pady=(5, 0))
 
 button_frame = ctk.CTkFrame(form_frame)
 button_frame.grid(row=7, column=0, columnspan=2, pady=10)
 
-search_btn = ctk.CTkButton(form_frame, text="Search by Description", command=open_search_window)
-search_btn.grid(row=7, column=0, columnspan=2, pady=10, sticky="n")
-
-submit_btn = ctk.CTkButton(button_frame, text="Add Expense", command=submit_expense)
-submit_btn.pack(side="left", padx=10)
+search_btn = ctk.CTkButton(button_frame, text="Search by Description", command=open_search_window)
+search_btn.pack(side="left", padx=10)
 
 view_btn = ctk.CTkButton(button_frame, text="View Expenses", command=view_expenses)
 view_btn.pack(side="left", padx=10)
@@ -1265,21 +1320,19 @@ view_btn.pack(side="left", padx=10)
 export_btn = ctk.CTkButton(button_frame, text="Export to CSV", command=export_to_csv_gui)
 export_btn.pack(side="left", padx=10)
 
+
 summary_btn = ctk.CTkButton(button_frame, text="Visualize Summary", command=open_summary_window)
 summary_btn.pack(side="left", padx=10)
 
 modify_btn = ctk.CTkButton(button_frame, text="Modify Expense", command=modify_expenses_gui)
 modify_btn.pack(side="left", padx=10)
 
-
-
 # ------------------- Dashboard Summary -------------------
-
 right_summary_panel = ctk.CTkFrame(
     main_content_wrapper,
     width=260,
     corner_radius=15,
-    fg_color="transparent"  # Or leave default
+    fg_color="transparent"
 )
 right_summary_panel.pack(side="right", padx=(15, 0), fill="y")
 
@@ -1291,7 +1344,6 @@ scrollable_dashboard = ctk.CTkScrollableFrame(
 )
 scrollable_dashboard.pack(fill="both", expand=True, pady=10, padx=10)
 
-# Dashboard Title
 ctk.CTkLabel(
     scrollable_dashboard,
     text="📊 Dashboard Summary",
@@ -1333,19 +1385,18 @@ recurring_desc = desc_counts.most_common(1)[0][0].title() if desc_counts else "N
 
 # -------- All Dashboard Cards --------
 cards = [
-    ("💰 Total", f"₹{total_spent:.2f}"),
-    ("📂 Categories", str(total_categories)),
-    ("🧾 Entries", str(total_entries)),
-    ("📉 Avg", f"₹{avg_expense:.2f}"),
-    ("💸 Top Category", top_category),
-    ("🔝 Highest Expense", f"₹{highest_expense:.2f}"),
-    ("📆 Costliest Day", costliest_day),
-    ("🧍‍♀️ Least Used", least_used_category),
-    ("📉 Lowest Expense", f"₹{lowest_expense:.2f}"),
-    ("🗓️ Most Active Day", f"{most_active_day[0]} ({most_active_day[1]} records)"),
-    ("🔁 Recurring Entry", recurring_desc)
+    ("Total", f"₹{total_spent:.2f}"),
+    ("Categories", str(total_categories)),
+    ("Entries", str(total_entries)),
+    ("Avg", f"₹{avg_expense:.2f}"),
+    ("Top Category", top_category),
+    ("Highest Expense", f"₹{highest_expense:.2f}"),
+    ("Costliest Day", costliest_day),
+    ("Least Used", least_used_category),
+    ("Lowest Expense", f"₹{lowest_expense:.2f}"),
+    ("Most Active Day", f"{most_active_day[0]} ({most_active_day[1]} records)"),
+    ("Recurring Entry", recurring_desc)
 ]
-
 
 def create_stat_card(parent, title, value):
     card = ctk.CTkFrame(
