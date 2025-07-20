@@ -623,6 +623,7 @@ def submit_expense():
 
     add_expense(description, amount, date, category)
     result_label.configure(text="Expense added successfully!", text_color="green")
+    result_label.after(3000, lambda: result_label.configure(text=""))
 
     desc_entry.delete(0, 'end')
     amt_entry.delete(0, 'end')
@@ -920,6 +921,25 @@ app.geometry("1000x620")
 
 calendar_widget_home = [None]
 
+#---------------Shrink Based on Window Width---------------
+stat_title_labels = []
+stat_value_labels = []
+
+def scale_fonts(event):
+    new_width = event.width
+    scale_factor = new_width / 1000 
+
+    new_title_size = max(10, int(13 * scale_factor))
+    new_value_size = max(12, int(18 * scale_factor))
+
+    for label in stat_title_labels:
+        label.configure(font=ctk.CTkFont(size=new_title_size))
+
+    for label in stat_value_labels:
+        label.configure(font=ctk.CTkFont(size=new_value_size, weight="bold"))
+
+app.bind("<Configure>", scale_fonts)
+
 # ------------------- Top Bar with Theme Toggle ------------------- #
 def toggle_theme():
     current_mode = ctk.get_appearance_mode()
@@ -935,6 +955,62 @@ theme_toggle_btn = ctk.CTkButton(
     top_bar, text="🌗 Toggle Theme", command=toggle_theme, width=130
 )
 theme_toggle_btn.pack(side="right", anchor="ne")
+
+# ------------------- Setting Panel -------------------
+def settings_window():
+    settings_win = ctk.CTkToplevel()
+    settings_win.title("Settings")
+    settings_win.geometry("500x550")
+
+    title_label = ctk.CTkLabel(settings_win, text="⚙️ Settings", font=("Helvetica", 22, "bold"))
+    title_label.pack(pady=10)
+
+    # Tabview
+    tabs = ctk.CTkTabview(settings_win, width=480, height=460)
+    tabs.pack(padx=10, pady=5, fill="both", expand=True)
+
+    # Add tabs
+    tabs.add("General Settings")
+    tabs.add("Expense Behavior")
+    tabs.add("Notifications")
+    tabs.add("Danger Zone")
+
+    # ========== GENERAL SETTINGS ==========
+    general_tab = tabs.tab("General Settings")
+    ctk.CTkLabel(general_tab, text="Theme Mode").pack(anchor="w", padx=10, pady=(10, 0))
+    ctk.CTkOptionMenu(general_tab, values=["Light", "Dark", "System"]).pack(padx=10, pady=5)
+
+    ctk.CTkLabel(general_tab, text="Default Currency").pack(anchor="w", padx=10, pady=(10, 0))
+    ctk.CTkOptionMenu(general_tab, values=["₹", "$", "€"]).pack(padx=10, pady=5)
+
+    ctk.CTkLabel(general_tab, text="Date Format").pack(anchor="w", padx=10, pady=(10, 0))
+    ctk.CTkOptionMenu(general_tab, values=["DD/MM/YYYY", "MM/DD/YYYY"]).pack(padx=10, pady=5)
+
+    # ========== EXPENSE BEHAVIOR ==========
+    expense_tab = tabs.tab("Expense Behavior")
+    ctk.CTkLabel(expense_tab, text="Expense Alert Threshold").pack(anchor="w", padx=10, pady=(10, 0))
+    ctk.CTkEntry(expense_tab, placeholder_text="e.g. 1000").pack(padx=10, pady=5)
+
+    ctk.CTkLabel(expense_tab, text="Default Category").pack(anchor="w", padx=10, pady=(10, 0))
+    ctk.CTkOptionMenu(expense_tab, values=["Food", "Travel", "Bills", "Other"]).pack(padx=10, pady=5)
+
+    # ========== NOTIFICATIONS ==========
+    notifications_tab = tabs.tab("Notifications")
+    ctk.CTkCheckBox(notifications_tab, text="Daily Summary").pack(anchor="w", padx=10, pady=5)
+    ctk.CTkCheckBox(notifications_tab, text="Add Expense Reminder").pack(anchor="w", padx=10, pady=5)
+    ctk.CTkCheckBox(notifications_tab, text="Bill Due Alerts").pack(anchor="w", padx=10, pady=5)
+
+    # ========== DANGER ZONE ==========
+    danger_tab = tabs.tab("Danger Zone")
+    ctk.CTkLabel(danger_tab, text="⚠️ Warning: These actions are irreversible!", text_color="red").pack(padx=10, pady=10)
+    ctk.CTkButton(danger_tab, text="Clear All Expense Data", fg_color="red").pack(pady=5)
+    ctk.CTkButton(danger_tab, text="Reset All Settings", fg_color="red").pack(pady=5)
+    ctk.CTkButton(danger_tab, text="Export All Data").pack(pady=5)
+
+settings_btn = ctk.CTkButton(
+    top_bar, text="Settings", command=settings_window, width=130
+)   
+settings_btn.pack(side="right", padx=(0,10))
 
 # ------------------- Combined Main Layout -------------------
 main_content_wrapper = ctk.CTkFrame(app)
@@ -1346,12 +1422,12 @@ scrollable_dashboard.pack(fill="both", expand=True, pady=10, padx=10)
 
 ctk.CTkLabel(
     scrollable_dashboard,
-    text="📊 Dashboard Summary",
+    text="Dashboard Summary",
     font=ctk.CTkFont(size=20, weight="bold")
 ).pack(pady=(10, 15))
 
 card_row = ctk.CTkFrame(scrollable_dashboard, fg_color="transparent")
-card_row.pack()
+card_row.pack(fill="both", expand=True)
 
 from collections import Counter
 data = load_data()
@@ -1399,12 +1475,12 @@ cards = [
 ]
 
 def create_stat_card(parent, title, value):
-    card = ctk.CTkFrame(
-        parent, width=220, height=80, corner_radius=10
-    )
+    card = ctk.CTkFrame(parent, width=220, height=80, corner_radius=10, fg_color="transparent")
     card.pack_propagate(False)
-    title_label = ctk.CTkLabel(card, text=title, font=ctk.CTkFont(size=13))
-    value_label = ctk.CTkLabel(card, text=value, font=ctk.CTkFont(size=18, weight="bold"))
+
+    title_label = ctk.CTkLabel(card, text=title, font=ctk.CTkFont(size=18, weight="bold"),text_color="#333333")
+    value_label = ctk.CTkLabel(card, text=value, font=ctk.CTkFont(size=14, weight="bold"), text_color="black")
+
     title_label.pack(pady=(10, 3))
     value_label.pack()
     card.pack(pady=10)
