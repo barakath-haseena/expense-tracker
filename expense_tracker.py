@@ -37,6 +37,17 @@ def backup_data():
     except Exception as e:
         messagebox.showerror("Backup Failed", str(e))
 
+SETTINGS_FILE = "data/settings.json"
+
+def load_settings():
+    if os.path.exists(SETTINGS_FILE):
+        with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {"theme": "Light", "currency": "INR"}
+
+def save_settings(settings):
+    with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+        json.dump(settings, f, indent=2)
 
 # ------------------- Validation -------------------
 def valid_amount(amt_input):
@@ -104,8 +115,6 @@ def delete_expense():
 
     input("\nPress Enter to return to the main menu...")
 
-
-
 def update_expense():
     data = load_data()
     try:
@@ -153,7 +162,6 @@ def update_expense():
         print(f"No expense found with the ID {update_id}.")
     
     input("\nPress Enter to return to the main menu...")
-
 
 # ------------------- Choose Category -------------------
 def choose_category():
@@ -355,7 +363,7 @@ def view_expenses():
         ctk.CTkLabel(scroll_frame, text=str(exp["id"])).grid(row=row, column=0, padx=5, pady=2)
         ctk.CTkLabel(scroll_frame, text=exp["date"]).grid(row=row, column=1, padx=5, pady=2)
         ctk.CTkLabel(scroll_frame, text=exp["category"]).grid(row=row, column=2, padx=5, pady=2)
-        ctk.CTkLabel(scroll_frame, text=f"₹{exp['amount']}").grid(row=row, column=3, padx=5, pady=2)
+        ctk.CTkLabel(scroll_frame, text=f"{selected_currency}{exp['amount']}").grid(row=row, column=3, padx=5, pady=2)
         ctk.CTkLabel(scroll_frame, text=exp["description"]).grid(row=row, column=4, padx=5, pady=2)
          
 def delete_expense_by_id(exp_id, window):
@@ -399,10 +407,10 @@ def summarize_expenses():
         else:
             total = sum(exp["amount"] for exp in filtered)
             print(f"\nSummary for Category: {category}")
-            print(f"Total Expenses: ₹{total}")
+            print(f"Total Expenses: {selected_currency}{total}")
             print(f"Number of Records: {len(filtered)}")
             for exp in filtered:
-                print(f"  ID: {exp['id']} | ₹{exp['amount']} | {exp['date']} | {exp['description']}")
+                print(f"  ID: {exp['id']} | {selected_currency}{exp['amount']} | {exp['date']} | {exp['description']}")
 
     elif choice == "2":
         while True:
@@ -501,8 +509,8 @@ def summarize_expenses():
 
         print("\nExpense Summary: ")       
         print(f"Total number of expenses: {total_count}")
-        print(f"Total number spent: ₹{total_amount:.2f}")
-        print(f"Average expense amount: ₹{average:.2f}")
+        print(f"Total number spent: {selected_currency}{total_amount:.2f}")
+        print(f"Average expense amount: {selected_currency}{average:.2f}")
     
     input("\nPress Enter to return to the main menu...")
 
@@ -576,7 +584,7 @@ def visualize_monthlysum():
     def make_label(pct, allvals):
         total = sum(allvals)
         absolute = int(round(pct/100.*total))
-        return f"{pct: .2f}%\n(₹{absolute})"
+        return f"{pct: .2f}%\n({selected_currency}{absolute})"
 
     colors = [
         "#8B4513",
@@ -656,7 +664,7 @@ def open_search_window():
                 result_box.insert("end", "No matching expenses found.\n")
             else:
                 for exp in matches:
-                    line = f"ID: {exp['id']} | {exp['date']} | {exp['category']} | ₹{exp['amount']} | {exp['description']}\n"
+                    line = f"ID: {exp['id']} | {exp['date']} | {exp['category']} | {selected_currency}{exp['amount']} | {exp['description']}\n"
                     result_box.insert("end", line)
 
         result_box.configure(state="disabled")
@@ -722,7 +730,7 @@ def open_summary_window():
         def make_label(pct, allvals):
             total = sum(allvals)
             absolute = int(round(pct/100.*total))
-            return f"{pct: .2f}%\n(₹{absolute})"
+            return f"{pct: .2f}%\n({selected_currency}{absolute})"
 
         colors = [
             "#8B4513",
@@ -888,7 +896,7 @@ def modify_expenses_gui():
         ctk.CTkLabel(scroll_frame, text=str(exp["id"])).grid(row=row, column=0, padx=5, pady=2)
         ctk.CTkLabel(scroll_frame, text=exp["date"]).grid(row=row, column=1, padx=5, pady=2)
         ctk.CTkLabel(scroll_frame, text=exp["category"]).grid(row=row, column=2, padx=5, pady=2)
-        ctk.CTkLabel(scroll_frame, text=f"₹{exp['amount']}").grid(row=row, column=3, padx=5, pady=2)
+        ctk.CTkLabel(scroll_frame, text=f"{selected_currency}{exp['amount']}").grid(row=row, column=3, padx=5, pady=2)
         ctk.CTkLabel(scroll_frame, text=exp["description"]).grid(row=row, column=4, padx=5, pady=2)
 
         delete_btn = ctk.CTkButton(
@@ -912,7 +920,12 @@ def modify_expenses_gui():
         update_btn.grid(row=row, column=6, padx=(5, 5), sticky="w")
 
 # ------------------- Main GUI-------------------
-ctk.set_appearance_mode("Light")
+
+#---load settings---#
+user_settings = load_settings()
+ctk.set_appearance_mode(user_settings.get("theme", "System"))
+default_currency = user_settings.get("currency", "₹")
+
 ctk.set_default_color_theme("blue")
 
 app = ctk.CTk()
@@ -924,6 +937,123 @@ calendar_widget_home = [None]
 #---------------Shrink Based on Window Width---------------
 stat_title_labels = []
 stat_value_labels = []
+
+selected_currency = user_settings.get("currency", "₹")
+
+# ------------------- Combined Main Layout -------------------
+main_content_wrapper = ctk.CTkFrame(app)
+main_content_wrapper.pack(padx=20, pady=20, fill="both", expand=True)
+
+left_main_area = ctk.CTkFrame(main_content_wrapper)
+left_main_area.pack(side="left", fill="both", expand=True)
+
+# ------------------- Dashboard Summary -------------------
+right_summary_panel = ctk.CTkFrame(
+    main_content_wrapper,
+    width=260,
+    corner_radius=15,
+    fg_color="transparent"
+)
+right_summary_panel.pack(side="right", padx=(15, 0), fill="y")
+
+scrollable_dashboard = ctk.CTkScrollableFrame(
+    right_summary_panel,
+    width=240,
+    corner_radius=0,
+    fg_color="transparent"
+)
+scrollable_dashboard.pack(fill="both", expand=True, pady=10, padx=10)
+
+ctk.CTkLabel(
+    scrollable_dashboard,
+    text="Dashboard Summary",
+    font=ctk.CTkFont(size=20, weight="bold")
+).pack(pady=(10, 15))
+
+card_row = ctk.CTkFrame(scrollable_dashboard, fg_color="transparent")
+card_row.pack(fill="both", expand=True)
+
+from collections import Counter
+data = load_data()
+expenses = data.get("expenses", [])
+
+# ---- Dashboard Metrics ----
+total_spent = sum(exp["amount"] for exp in expenses)
+total_entries = len(expenses)
+categories = set(exp.get("category", "General") for exp in expenses)
+total_categories = len(categories)
+avg_expense = total_spent / total_entries if total_entries > 0 else 0
+
+category_counts = Counter(exp.get("category", "General") for exp in expenses)
+top_category = category_counts.most_common(1)[0][0] if category_counts else "N/A"
+
+highest_expense = max((exp["amount"] for exp in expenses), default=0)
+highest_expense_entry = next((exp for exp in expenses if exp["amount"] == highest_expense), None)
+costliest_day = highest_expense_entry.get("date") if highest_expense_entry else "N/A"
+
+least_used_category = (
+    min(category_counts.items(), key=lambda x: x[1])[0] if category_counts else "N/A"
+)
+
+lowest_expense = min((exp["amount"] for exp in expenses), default=0)
+
+date_counts = Counter(exp.get("date", "Unknown") for exp in expenses)
+most_active_day = date_counts.most_common(1)[0] if date_counts else ("N/A", 0)
+
+desc_counts = Counter(exp.get("description", "").strip().lower() for exp in expenses)
+recurring_desc = desc_counts.most_common(1)[0][0].title() if desc_counts else "N/A"
+
+# -------- All Dashboard Cards --------
+cards = [
+    ("Total", f"{total_spent:.2f}"),
+    ("Categories", str(total_categories)),
+    ("Entries", str(total_entries)),
+    ("Avg", f"{avg_expense:.2f}"),
+    ("Top Category", top_category),
+    ("Highest Expense", f"{highest_expense:.2f}"),
+    ("Costliest Day", costliest_day),
+    ("Least Used", least_used_category),
+    ("Lowest Expense", f"{lowest_expense:.2f}"),
+    ("Most Active Day", f"{most_active_day[0]} ({most_active_day[1]} records)"),
+    ("Recurring Entry", recurring_desc)
+]
+money_titles = {"Total", "Avg", "Highest Expense","Costliest Day", "Lowest Expense"}
+
+def create_stat_card(parent, title, value):
+    card = ctk.CTkFrame(parent, width=220, height=80, corner_radius=10, fg_color="transparent")
+    card.pack_propagate(False)
+
+    title_label = ctk.CTkLabel(
+        card,
+        text=title,
+        font=ctk.CTkFont(size=18, weight="bold"),
+        text_color=("black", "white")
+    )
+
+    value_label = ctk.CTkLabel(
+        card,
+        text=f"{selected_currency}{value}" if title in money_titles else value,
+        font=ctk.CTkFont(size=14, weight="bold"),
+        text_color=("gray20", "white")
+    )
+
+    stat_title_labels.append(title_label)
+    stat_value_labels.append(value_label)
+
+    title_label.pack(pady=(10, 3))
+    value_label.pack()
+    card.pack(pady=10)
+
+for title, value in cards:
+    create_stat_card(card_row, title, value)
+
+total = sum(exp["amount"] for exp in expenses)
+total_label = ctk.CTkLabel(
+    scrollable_dashboard,
+    text=f"Total: {selected_currency}{total:.2f}",
+    font=ctk.CTkFont(size=16, weight="bold")
+)
+total_label.pack(pady=(10, 0))
 
 def scale_fonts(event):
     new_width = event.width
@@ -957,12 +1087,38 @@ theme_toggle_btn = ctk.CTkButton(
 theme_toggle_btn.pack(side="right", anchor="ne")
 
 # ------------------- Setting Panel -------------------
+user_settings = load_settings()
+total_label =  None
+
 def settings_window():
     settings_win = ctk.CTkToplevel()
     settings_win.title("Settings")
     settings_win.geometry("500x550")
 
-    title_label = ctk.CTkLabel(settings_win, text="⚙️ Settings", font=("Helvetica", 22, "bold"))
+    def on_theme_change(new_theme):
+        ctk.set_appearance_mode(new_theme)
+        user_settings["theme"] = new_theme
+        save_settings(user_settings)
+
+    def on_currency_change(new_currency):
+        global selected_currency
+        selected_currency = new_currency
+        user_settings["currency"] = new_currency
+        save_settings(user_settings)
+
+        for i, value_label in enumerate(stat_value_labels):
+            current_value = value_label.cget("text")
+            if current_value[0] in ["₹", "$", "€"]:  # remove old currency symbol
+                number = current_value[1:]
+            else:
+                number = current_value
+            value_label.configure(text=f"{selected_currency}{number}")
+
+        if 'total_label' in globals():
+            total = sum(exp["amount"] for exp in expenses)
+            total_label.configure(text=f"Total: {selected_currency}{total:.2f}")
+
+    title_label = ctk.CTkLabel(settings_win, text="Settings", font=("Helvetica", 22, "bold"))
     title_label.pack(pady=10)
 
     # Tabview
@@ -970,24 +1126,38 @@ def settings_window():
     tabs.pack(padx=10, pady=5, fill="both", expand=True)
 
     # Add tabs
-    tabs.add("General Settings")
-    tabs.add("Expense Behavior")
-    tabs.add("Notifications")
-    tabs.add("Danger Zone")
+    general_tab = tabs.add("General Settings")
+    expense_tab = tabs.add("Expense Behavior")
+    notifications_tab = tabs.add("Notifications")
+    danger_tab = tabs.add("System Actions")
 
     # ========== GENERAL SETTINGS ==========
-    general_tab = tabs.tab("General Settings")
     ctk.CTkLabel(general_tab, text="Theme Mode").pack(anchor="w", padx=10, pady=(10, 0))
-    ctk.CTkOptionMenu(general_tab, values=["Light", "Dark", "System"]).pack(padx=10, pady=5)
+    theme_dropdown = ctk.CTkOptionMenu(
+        general_tab,
+        values=["Light", "Dark", "System"],
+        command=on_theme_change
+    )
+    theme_dropdown.set(user_settings.get("theme", "Light"))
+    theme_dropdown.pack(padx=10, pady=5)
 
     ctk.CTkLabel(general_tab, text="Default Currency").pack(anchor="w", padx=10, pady=(10, 0))
-    ctk.CTkOptionMenu(general_tab, values=["₹", "$", "€"]).pack(padx=10, pady=5)
+    currency_dropdown = ctk.CTkOptionMenu(
+        general_tab,
+        values=["₹", "$", "€"],
+        command=on_currency_change
+    )
+    currency_dropdown.pack(padx=10, pady=5)
+    currency_dropdown.set(user_settings.get("currency", "₹"))
+    currency_dropdown._name = "REAL_CURRENCY_DROPDOWN"
 
     ctk.CTkLabel(general_tab, text="Date Format").pack(anchor="w", padx=10, pady=(10, 0))
-    ctk.CTkOptionMenu(general_tab, values=["DD/MM/YYYY", "MM/DD/YYYY"]).pack(padx=10, pady=5)
+    ctk.CTkOptionMenu(
+        general_tab,
+        values=["DD/MM/YYYY", "MM/DD/YYYY"]
+    ).pack(padx=10, pady=5)
 
     # ========== EXPENSE BEHAVIOR ==========
-    expense_tab = tabs.tab("Expense Behavior")
     ctk.CTkLabel(expense_tab, text="Expense Alert Threshold").pack(anchor="w", padx=10, pady=(10, 0))
     ctk.CTkEntry(expense_tab, placeholder_text="e.g. 1000").pack(padx=10, pady=5)
 
@@ -995,29 +1165,20 @@ def settings_window():
     ctk.CTkOptionMenu(expense_tab, values=["Food", "Travel", "Bills", "Other"]).pack(padx=10, pady=5)
 
     # ========== NOTIFICATIONS ==========
-    notifications_tab = tabs.tab("Notifications")
     ctk.CTkCheckBox(notifications_tab, text="Daily Summary").pack(anchor="w", padx=10, pady=5)
     ctk.CTkCheckBox(notifications_tab, text="Add Expense Reminder").pack(anchor="w", padx=10, pady=5)
     ctk.CTkCheckBox(notifications_tab, text="Bill Due Alerts").pack(anchor="w", padx=10, pady=5)
 
-    # ========== DANGER ZONE ==========
-    danger_tab = tabs.tab("Danger Zone")
-    ctk.CTkLabel(danger_tab, text="⚠️ Warning: These actions are irreversible!", text_color="red").pack(padx=10, pady=10)
+    # ========== SYSTEM ACTIONS ==========
     ctk.CTkButton(danger_tab, text="Clear All Expense Data", fg_color="red").pack(pady=5)
     ctk.CTkButton(danger_tab, text="Reset All Settings", fg_color="red").pack(pady=5)
     ctk.CTkButton(danger_tab, text="Export All Data").pack(pady=5)
+    ctk.CTkLabel(danger_tab, text="Warning: These actions are irreversible!", text_color="red").pack(padx=10, pady=10)
 
 settings_btn = ctk.CTkButton(
     top_bar, text="Settings", command=settings_window, width=130
 )   
 settings_btn.pack(side="right", padx=(0,10))
-
-# ------------------- Combined Main Layout -------------------
-main_content_wrapper = ctk.CTkFrame(app)
-main_content_wrapper.pack(padx=20, pady=20, fill="both", expand=True)
-
-left_main_area = ctk.CTkFrame(main_content_wrapper)
-left_main_area.pack(side="left", fill="both", expand=True)
 
 # ------------------- Add Expense Form -------------------
 form_frame = ctk.CTkFrame(left_main_area)
@@ -1153,7 +1314,6 @@ def open_filter_by_month_year():
 
     ctk.CTkButton(popup, text="Apply Filter", command=on_confirm).pack(pady=10)
 
-
 def open_amount_filter_menu():
     popup = ctk.CTkToplevel(app)
     popup.title("Filter by Amount")
@@ -1166,9 +1326,9 @@ def open_amount_filter_menu():
     radio_frame = ctk.CTkFrame(popup, fg_color="transparent")
     radio_frame.pack(pady=10)
 
-    ctk.CTkRadioButton(radio_frame, text="More than ₹", variable=filter_type, value="more").pack(anchor="w")
-    ctk.CTkRadioButton(radio_frame, text="Less than ₹", variable=filter_type, value="less").pack(anchor="w")
-    ctk.CTkRadioButton(radio_frame, text="Between ₹ Min and ₹ Max", variable=filter_type, value="between").pack(anchor="w")
+    ctk.CTkRadioButton(radio_frame, text="More than x", variable=filter_type, value="more").pack(anchor="w")
+    ctk.CTkRadioButton(radio_frame, text="Less than x", variable=filter_type, value="less").pack(anchor="w")
+    ctk.CTkRadioButton(radio_frame, text="Between x Min and x Max", variable=filter_type, value="between").pack(anchor="w")
 
     slider_frame = ctk.CTkFrame(popup, fg_color="transparent")
     slider_frame.pack(pady=15)
@@ -1177,22 +1337,22 @@ def open_amount_filter_menu():
     min_value = ctk.DoubleVar(value=100)
     max_value = ctk.DoubleVar(value=500)
 
-    single_slider_label = ctk.CTkLabel(slider_frame, text=f"₹{single_value.get():.0f}")
+    single_slider_label = ctk.CTkLabel(slider_frame, text=f"{selected_currency}{single_value.get():.0f}")
     single_slider = ctk.CTkSlider(
         slider_frame, from_=0, to=10000, variable=single_value,
-        command=lambda v: single_slider_label.configure(text=f"₹{v:.0f}")
+        command=lambda v: single_slider_label.configure(text=f"{selected_currency}{v:.0f}")
     )
 
-    min_slider_label = ctk.CTkLabel(slider_frame, text=f"Min ₹{min_value.get():.0f}")
+    min_slider_label = ctk.CTkLabel(slider_frame, text=f"Min {selected_currency}{min_value.get():.0f}")
     min_slider = ctk.CTkSlider(
         slider_frame, from_=0, to=10000, variable=min_value,
-        command=lambda v: min_slider_label.configure(text=f"Min ₹{v:.0f}")
+        command=lambda v: min_slider_label.configure(text=f"Min {selected_currency}{v:.0f}")
     )
 
-    max_slider_label = ctk.CTkLabel(slider_frame, text=f"Max ₹{max_value.get():.0f}")
+    max_slider_label = ctk.CTkLabel(slider_frame, text=f"Max {selected_currency}{max_value.get():.0f}")
     max_slider = ctk.CTkSlider(
         slider_frame, from_=0, to=10000, variable=max_value,
-        command=lambda v: max_slider_label.configure(text=f"Max ₹{v:.0f}")
+        command=lambda v: max_slider_label.configure(text=f"Max {selected_currency}{v:.0f}")
     )
 
     def update_sliders(*args):
@@ -1298,7 +1458,7 @@ def show_filtered_expenses(filtered):
     list_frame.pack(padx=10, pady=10)
 
     for i, exp in enumerate(filtered, start=1):
-        text = f"{i}. {exp['description']} | ₹{exp['amount']} | {exp['date']} | {exp['category']}"
+        text = f"{i}. {exp['description']} | {selected_currency}{exp['amount']} | {exp['date']} | {exp['category']}"
         ctk.CTkLabel(list_frame, text=text, anchor="w").pack(fill="x", padx=10, pady=2)
 
 def filter_by_category(selected_category):
@@ -1344,7 +1504,7 @@ def filter_by_amount_greater_than(x):
     filtered = [exp for exp in expenses if exp.get("amount", 0) > x]
 
     if not filtered:
-        messagebox.showinfo("No Results", f"No expenses greater than ₹{x}")
+        messagebox.showinfo("No Results", f"No expenses greater than {selected_currency}{x}")
     else:
         show_filtered_expenses(filtered)
 
@@ -1355,7 +1515,7 @@ def filter_by_amount_less_than(x):
     filtered = [exp for exp in expenses if exp.get("amount", 0) < x]
 
     if not filtered:
-        messagebox.showinfo("No Results", f"No expenses less than ₹{x}")
+        messagebox.showinfo("No Results", f"No expenses less than {selected_currency}{x}")
     else:
         show_filtered_expenses(filtered)
 
@@ -1369,7 +1529,7 @@ def filter_by_amount_between(min_amt, max_amt):
     ]
 
     if not filtered:
-        messagebox.showinfo("No Results", f"No expenses between ₹{min_amt} and ₹{max_amt}")
+        messagebox.showinfo("No Results", f"No expenses between {selected_currency}{min_amt} and {selected_currency}{max_amt}")
     else:
         show_filtered_expenses(filtered)
 
@@ -1403,89 +1563,5 @@ summary_btn.pack(side="left", padx=10)
 modify_btn = ctk.CTkButton(button_frame, text="Modify Expense", command=modify_expenses_gui)
 modify_btn.pack(side="left", padx=10)
 
-# ------------------- Dashboard Summary -------------------
-right_summary_panel = ctk.CTkFrame(
-    main_content_wrapper,
-    width=260,
-    corner_radius=15,
-    fg_color="transparent"
-)
-right_summary_panel.pack(side="right", padx=(15, 0), fill="y")
-
-scrollable_dashboard = ctk.CTkScrollableFrame(
-    right_summary_panel,
-    width=240,
-    corner_radius=0,
-    fg_color="transparent"
-)
-scrollable_dashboard.pack(fill="both", expand=True, pady=10, padx=10)
-
-ctk.CTkLabel(
-    scrollable_dashboard,
-    text="Dashboard Summary",
-    font=ctk.CTkFont(size=20, weight="bold")
-).pack(pady=(10, 15))
-
-card_row = ctk.CTkFrame(scrollable_dashboard, fg_color="transparent")
-card_row.pack(fill="both", expand=True)
-
-from collections import Counter
-data = load_data()
-expenses = data.get("expenses", [])
-
-# ---- Dashboard Metrics ----
-total_spent = sum(exp["amount"] for exp in expenses)
-total_entries = len(expenses)
-categories = set(exp.get("category", "General") for exp in expenses)
-total_categories = len(categories)
-avg_expense = total_spent / total_entries if total_entries > 0 else 0
-
-category_counts = Counter(exp.get("category", "General") for exp in expenses)
-top_category = category_counts.most_common(1)[0][0] if category_counts else "N/A"
-
-highest_expense = max((exp["amount"] for exp in expenses), default=0)
-highest_expense_entry = next((exp for exp in expenses if exp["amount"] == highest_expense), None)
-costliest_day = highest_expense_entry.get("date") if highest_expense_entry else "N/A"
-
-least_used_category = (
-    min(category_counts.items(), key=lambda x: x[1])[0] if category_counts else "N/A"
-)
-
-lowest_expense = min((exp["amount"] for exp in expenses), default=0)
-
-date_counts = Counter(exp.get("date", "Unknown") for exp in expenses)
-most_active_day = date_counts.most_common(1)[0] if date_counts else ("N/A", 0)
-
-desc_counts = Counter(exp.get("description", "").strip().lower() for exp in expenses)
-recurring_desc = desc_counts.most_common(1)[0][0].title() if desc_counts else "N/A"
-
-# -------- All Dashboard Cards --------
-cards = [
-    ("Total", f"₹{total_spent:.2f}"),
-    ("Categories", str(total_categories)),
-    ("Entries", str(total_entries)),
-    ("Avg", f"₹{avg_expense:.2f}"),
-    ("Top Category", top_category),
-    ("Highest Expense", f"₹{highest_expense:.2f}"),
-    ("Costliest Day", costliest_day),
-    ("Least Used", least_used_category),
-    ("Lowest Expense", f"₹{lowest_expense:.2f}"),
-    ("Most Active Day", f"{most_active_day[0]} ({most_active_day[1]} records)"),
-    ("Recurring Entry", recurring_desc)
-]
-
-def create_stat_card(parent, title, value):
-    card = ctk.CTkFrame(parent, width=220, height=80, corner_radius=10, fg_color="transparent")
-    card.pack_propagate(False)
-
-    title_label = ctk.CTkLabel(card, text=title, font=ctk.CTkFont(size=18, weight="bold"),text_color="#333333")
-    value_label = ctk.CTkLabel(card, text=value, font=ctk.CTkFont(size=14, weight="bold"), text_color="black")
-
-    title_label.pack(pady=(10, 3))
-    value_label.pack()
-    card.pack(pady=10)
-
-for title, value in cards:
-    create_stat_card(card_row, title, value)
 
 app.mainloop()
